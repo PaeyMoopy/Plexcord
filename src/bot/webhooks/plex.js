@@ -204,7 +204,7 @@ export function setupWebhookServer() {
   });
 
   const port = process.env.WEBHOOK_PORT || 5000;
-  const host = process.env.HOST || '0.0.0.0';
+  const host = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces
 
   app.listen(port, host, () => {
     console.log(`Webhook server listening on http://${host}:${port}`);

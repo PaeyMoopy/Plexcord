@@ -11,7 +11,7 @@ export async function handleRequest(message, query) {
 
   try {
     // Get max results from settings (default to 5 since localStorage isn't available in Node)
-    const maxResults = 5;
+    const maxResults = 3;
 
     // Search TMDB
     const results = await searchTMDB(query);

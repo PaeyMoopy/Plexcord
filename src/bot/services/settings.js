@@ -21,6 +21,7 @@ export async function loadSettings() {
   process.env.TMDB_API_KEY = data.tmdb_api_key;
   process.env.TAUTULLI_URL = data.tautulli_url;
   process.env.TAUTULLI_API_KEY = data.tautulli_api_key;
+  process.env.ALLOWED_CHANNEL_ID = data.allowed_channel_id; // Add allowed channel ID
 
   return data;
 }

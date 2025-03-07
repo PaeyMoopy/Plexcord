@@ -4,11 +4,11 @@ module.exports = {
     script: 'src/bot/index.js',
     env: {
       NODE_ENV: 'production',
-      HOST: '192.168.2.219'
+      HOST: '0.0.0.0' // Listen on all network interfaces
     },
     env_production: {
       NODE_ENV: 'production',
-      HOST: '192.168.2.219'
+      HOST: '0.0.0.0' // Listen on all network interfaces
     }
   }]
 }

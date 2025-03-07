@@ -12,8 +12,8 @@ export default defineConfig({
     'process.env': {}
   },
   server: {
-    host: '192.168.2.219', // Bind to specific IP
-    port: 3000,
+    host: '0.0.0.0', // Listen on all network interfaces
+    port: 3000, // Ensure this port is open in the firewall
     proxy: {
       '/webhook': {
         target: 'http://localhost:5000',

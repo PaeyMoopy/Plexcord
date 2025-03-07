@@ -21,7 +21,8 @@ async function startBot() {
       'OVERSEERR_API_KEY',
       'TMDB_API_KEY',
       'VITE_SUPABASE_URL',
-      'VITE_SUPABASE_ANON_KEY'
+      'VITE_SUPABASE_ANON_KEY',
+      'ALLOWED_CHANNEL_ID' // Add allowed channel ID setting
     ];
 
     for (const setting of requiredSettings) {
@@ -74,6 +75,9 @@ async function startBot() {
 
     client.on(Events.MessageCreate, async (message) => {
       if (message.author.bot) return;
+
+      // Check if the message is in the allowed channel
+      if (message.channel.id !== process.env.ALLOWED_CHANNEL_ID) return;
 
       const args = message.content.split(' ');
       const command = args[0].toLowerCase();

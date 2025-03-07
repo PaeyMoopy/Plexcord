@@ -22,7 +22,7 @@ export async function handleSubscribe(message, query) {
     }
 
     // Default to 5 results since localStorage isn't available in Node
-    const maxResults = 5;
+    const maxResults = 3;
 
     // Take first N results
     const options = results.slice(0, maxResults);
