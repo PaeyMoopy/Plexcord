@@ -50,61 +50,80 @@ export async function handleRequest(message, query) {
 
     // Create reaction collector
     const filter = (reaction, user) => {
-      return user.id === message.author.id;
+      const validReactions = [...Array(options.length)].map((_, i) => `${i + 1}️⃣`).concat('❌');
+      return validReactions.includes(reaction.emoji.name) && user.id === message.author.id;
     };
 
     const collector = selectionMsg.createReactionCollector({ filter, time: 30000 });
 
-    collector.on('collect', async (reaction) => {
-      if (reaction.emoji.name === '❌') {
-        await message.reply('Request cancelled.');
-        collector.stop();
-        return;
+    collector.on('collect', async (reaction, user) => {
+      try {
+        if (reaction.emoji.name === '❌') {
+          await message.reply('Request cancelled.');
+          collector.stop('cancelled');
+          return;
+        }
+
+        const index = Number(reaction.emoji.name[0]) - 1;
+        const selected = options[index];
+
+        // Stop the collector immediately to prevent double-selections
+        collector.stop('selected');
+
+        // Send a processing message
+        const processingMsg = await message.reply('Processing your request...');
+
+        try {
+          // Check if content exists in Plex
+          const exists = await checkOverseerr(selected.id);
+          
+          if (exists) {
+            await processingMsg.edit('This content is already available in Plex!');
+            return;
+          }
+
+          // Create request in Overseerr
+          await createRequest({
+            mediaType: selected.media_type,
+            mediaId: selected.id,
+            userId: user.id
+          });
+
+          // Add subscription
+          const { error: subError } = await supabase
+            .from('subscriptions')
+            .insert({
+              user_id: user.id,
+              tmdb_id: selected.id,
+              media_type: selected.media_type,
+              title: selected.title || selected.name
+            });
+
+          if (subError) {
+            console.error('Error adding subscription:', subError);
+            throw new Error('Failed to add subscription');
+          }
+
+          await processingMsg.edit(`Request for "${selected.title || selected.name}" has been submitted! You'll be notified when it's available.`);
+        } catch (error) {
+          console.error('Error processing request:', error);
+          await processingMsg.edit('An error occurred while processing your request. Please try again later.');
+        }
+      } catch (error) {
+        console.error('Error handling reaction:', error);
+        await message.reply('An error occurred while processing your selection. Please try again.');
       }
-
-      const index = Number(reaction.emoji.name[0]) - 1;
-      const selected = options[index];
-
-      // Check if content exists in Plex
-      const exists = await checkOverseerr(selected.id);
-      
-      if (exists) {
-        await message.reply('This content is already available in Plex!');
-        collector.stop();
-        return;
-      }
-
-      // Create request in Overseerr
-      await createRequest({
-        mediaType: selected.media_type,
-        mediaId: selected.id,
-        userId: message.author.id
-      });
-
-      // Add subscription
-      const { error } = await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: message.author.id,
-          tmdb_id: selected.id,
-          media_type: selected.media_type,
-          title: selected.title || selected.name
-        });
-
-      if (error) {
-        console.error('Error adding subscription:', error);
-      }
-
-      await message.reply(`Request for "${selected.title || selected.name}" has been submitted!`);
-      collector.stop();
     });
 
-    collector.on('end', () => {
-      selectionMsg.reactions.removeAll();
+    collector.on('end', async (_, reason) => {
+      if (reason !== 'cancelled' && reason !== 'selected') {
+        await message.reply('Request timed out. Please try again.');
+      }
+      await selectionMsg.reactions.removeAll().catch(console.error);
     });
 
   } catch (error) {
     console.error('Error handling request:', error);
-    await message.reply('An error occurred while processing your request.');
+    await message.reply('An error occurred while processing your request. Please try again later.');
   }
 }
