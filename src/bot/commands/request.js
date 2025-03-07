@@ -24,17 +24,23 @@ export async function handleRequest(message, query) {
     // Take first N results based on settings
     const options = results.slice(0, maxResults);
     
-    // Create embed with options
-    const embed = new EmbedBuilder()
-      .setTitle('Search Results')
-      .setDescription('Please select an option by reacting with the corresponding number:')
-      .setFields(options.map((result, index) => ({
-        name: `${index + 1}. ${result.title || result.name}`,
-        value: `Release Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`
-      })))
-      .setImage(`https://image.tmdb.org/t/p/w500${options[0].poster_path}`);
+    // Create embeds for each result
+    const embeds = options.map((result, index) => {
+      return new EmbedBuilder()
+        .setTitle(`${index + 1}. ${result.title || result.name}`)
+        .setDescription(`Release Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`)
+        .setImage(`https://image.tmdb.org/t/p/w500${result.poster_path}`)
+        .setFooter({ text: `Type: ${result.media_type}` });
+    });
 
-    const selectionMsg = await message.reply({ embeds: [embed] });
+    // Add instructions embed
+    const instructionsEmbed = new EmbedBuilder()
+      .setTitle('Search Results')
+      .setDescription('Please select an option by reacting with the corresponding number:');
+    
+    embeds.unshift(instructionsEmbed);
+
+    const selectionMsg = await message.reply({ embeds });
     
     // Add number reactions
     for (let i = 0; i < options.length; i++) {

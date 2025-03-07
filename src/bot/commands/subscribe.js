@@ -1,5 +1,6 @@
 import { searchTMDB } from '../services/tmdb.js';
 import { supabase } from '../services/supabase.js';
+import { EmbedBuilder } from 'discord.js';
 
 export async function handleSubscribe(message, query) {
   if (!query) {
@@ -26,20 +27,23 @@ export async function handleSubscribe(message, query) {
     // Take first N results
     const options = results.slice(0, maxResults);
     
-    // Create embed with options
-    const embed = {
-      title: 'Search Results',
-      description: `Please select what you want to subscribe to${isEpisodeSubscription ? ' (Episode notifications)' : ''}:`,
-      fields: options.map((result, index) => ({
-        name: `${index + 1}. ${result.title || result.name}`,
-        value: `Type: ${result.media_type}\nRelease Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`
-      })),
-      image: {
-        url: `https://image.tmdb.org/t/p/w500${options[0].poster_path}`
-      }
-    };
+    // Create embeds for each result
+    const embeds = options.map((result, index) => {
+      return new EmbedBuilder()
+        .setTitle(`${index + 1}. ${result.title || result.name}`)
+        .setDescription(`Type: ${result.media_type}\nRelease Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`)
+        .setImage(`https://image.tmdb.org/t/p/w500${result.poster_path}`)
+        .setFooter({ text: isEpisodeSubscription ? 'Episode notifications enabled' : 'Release notification only' });
+    });
 
-    const selectionMsg = await message.reply({ embeds: [embed] });
+    // Add instructions embed
+    const instructionsEmbed = new EmbedBuilder()
+      .setTitle('Search Results')
+      .setDescription(`Please select what you want to subscribe to${isEpisodeSubscription ? ' (Episode notifications)' : ''}:`);
+    
+    embeds.unshift(instructionsEmbed);
+
+    const selectionMsg = await message.reply({ embeds });
     
     // Add number reactions
     for (let i = 0; i < options.length; i++) {

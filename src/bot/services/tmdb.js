@@ -23,11 +23,12 @@ export async function searchTMDB(query, mediaType = null) {
     // Validate and encode search parameters
     const encodedQuery = encodeURIComponent(searchQuery);
     const endpoint = forcedMediaType ? `search/${forcedMediaType}` : 'search/multi';
-    const url = `${TMDB_BASE_URL}/${endpoint}?query=${encodedQuery}&include_adult=false`;
+    
+    // Use API key as query parameter instead of Authorization header
+    const url = `${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodedQuery}&include_adult=false`;
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${TMDB_API_KEY}`,
         'Content-Type': 'application/json'
       }
     });
