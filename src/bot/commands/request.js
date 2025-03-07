@@ -1,7 +1,7 @@
 import { searchTMDB, checkOverseerr } from '../services/tmdb.js';
 import { supabase } from '../services/supabase.js';
 import { createRequest } from '../services/overseerr.js';
-import { MessageEmbed } from 'discord.js';
+import { EmbedBuilder } from 'discord.js';
 
 export async function handleRequest(message, query) {
   if (!query) {
@@ -10,9 +10,8 @@ export async function handleRequest(message, query) {
   }
 
   try {
-    // Get max results from settings
-    const settings = localStorage.getItem('botSettings');
-    const maxResults = settings ? JSON.parse(settings).maxResults || 5 : 5;
+    // Get max results from settings (default to 5 since localStorage isn't available in Node)
+    const maxResults = 5;
 
     // Search TMDB
     const results = await searchTMDB(query);
@@ -26,17 +25,14 @@ export async function handleRequest(message, query) {
     const options = results.slice(0, maxResults);
     
     // Create embed with options
-    const embed = {
-      title: 'Search Results',
-      description: 'Please select an option by reacting with the corresponding number:',
-      fields: options.map((result, index) => ({
+    const embed = new EmbedBuilder()
+      .setTitle('Search Results')
+      .setDescription('Please select an option by reacting with the corresponding number:')
+      .setFields(options.map((result, index) => ({
         name: `${index + 1}. ${result.title || result.name}`,
         value: `Release Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`
-      })),
-      image: {
-        url: `https://image.tmdb.org/t/p/w500${options[0].poster_path}`
-      }
-    };
+      })))
+      .setImage(`https://image.tmdb.org/t/p/w500${options[0].poster_path}`);
 
     const selectionMsg = await message.reply({ embeds: [embed] });
     

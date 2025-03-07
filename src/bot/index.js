@@ -30,7 +30,32 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-  ]
+  ],
+  // Add reconnection options
+  failIfNotExists: false,
+  retryLimit: 5,
+  presence: {
+    status: 'online'
+  }
+});
+
+// Handle connection errors
+client.on('error', error => {
+  console.error('Discord client error:', error);
+  // Attempt to reconnect after a delay
+  setTimeout(() => {
+    console.log('Attempting to reconnect...');
+    client.login(process.env.DISCORD_TOKEN).catch(console.error);
+  }, 5000);
+});
+
+client.on('disconnect', () => {
+  console.log('Discord client disconnected');
+  // Attempt to reconnect after a delay
+  setTimeout(() => {
+    console.log('Attempting to reconnect...');
+    client.login(process.env.DISCORD_TOKEN).catch(console.error);
+  }, 5000);
 });
 
 client.once(Events.ClientReady, () => {
@@ -44,22 +69,32 @@ client.on(Events.MessageCreate, async (message) => {
   const args = message.content.split(' ');
   const command = args[0].toLowerCase();
 
-  switch (command) {
-    case '!request':
-      await handleRequest(message, args.slice(1).join(' '));
-      break;
-    case '!subscribe':
-      await handleSubscribe(message, args.slice(1).join(' '));
-      break;
-    case '!list':
-      await handleList(message);
-      break;
-    case '!unsubscribe':
-      await handleUnsubscribe(message);
-      break;
+  try {
+    switch (command) {
+      case '!request':
+        await handleRequest(message, args.slice(1).join(' '));
+        break;
+      case '!subscribe':
+        await handleSubscribe(message, args.slice(1).join(' '));
+        break;
+      case '!list':
+        await handleList(message);
+        break;
+      case '!unsubscribe':
+        await handleUnsubscribe(message);
+        break;
+    }
+  } catch (error) {
+    console.error('Error handling command:', error);
+    await message.reply('An error occurred while processing your command. Please try again later.')
+      .catch(console.error);
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+// Initial login
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+  console.error('Failed to login:', error);
+  process.exit(1);
+});
 
 export { client };

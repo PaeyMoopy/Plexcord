@@ -20,9 +20,8 @@ export async function handleSubscribe(message, query) {
       return;
     }
 
-    // Get max results from settings
-    const settings = localStorage.getItem('botSettings');
-    const maxResults = settings ? JSON.parse(settings).maxResults || 5 : 5;
+    // Default to 5 results since localStorage isn't available in Node
+    const maxResults = 5;
 
     // Take first N results
     const options = results.slice(0, maxResults);
