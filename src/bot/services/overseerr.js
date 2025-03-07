@@ -34,6 +34,24 @@ async function getSonarrServers() {
   return response.json();
 }
 
+async function getMediaDetails(mediaType, mediaId) {
+  const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
+  const response = await fetch(
+    `${process.env.OVERSEERR_URL}/api/v1/${endpoint}/${mediaId}`,
+    {
+      headers: {
+        'X-Api-Key': process.env.OVERSEERR_API_KEY
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch media details: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export async function createRequest({ mediaType, mediaId, userId }) {
   try {
     console.log(`Creating Overseerr request for media ${mediaId} (${mediaType}) for user ${userId}`);
@@ -69,11 +87,15 @@ export async function createRequest({ mediaType, mediaId, userId }) {
         throw new Error('No Sonarr server configured');
       }
 
+      // Get TV show details to get season information
+      const tvDetails = await getMediaDetails('tv', mediaId);
+      const seasons = tvDetails.seasons.map(season => season.seasonNumber);
+
       Object.assign(requestBody, {
         serverId: serverConfig.id,
         profileId: serverConfig.activeProfileId,
         rootFolder: serverConfig.activeDirectory,
-        seasons: [], // Request all seasons by default
+        seasons: seasons, // Request all available seasons
         languageProfileId: serverConfig.activeLanguageProfileId
       });
     }
