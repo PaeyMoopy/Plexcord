@@ -13,6 +13,7 @@
       - `max_results` (integer)
       - `created_at` (timestamp)
       - `updated_at` (timestamp)
+      - `allowed_channel_id` (text)
 
   2. Security
     - Enable RLS on `settings` table
@@ -30,7 +31,8 @@ CREATE TABLE IF NOT EXISTS settings (
   tautulli_api_key text,
   max_results integer DEFAULT 5,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  allowed_channel_id text
 );
 
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
