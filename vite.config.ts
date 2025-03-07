@@ -12,6 +12,7 @@ export default defineConfig({
     'process.env': {}
   },
   server: {
+    host: true, // Listen on all network interfaces
     port: 3000,
     proxy: {
       '/webhook': {
