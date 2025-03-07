@@ -1,4 +1,4 @@
-import { searchTMDB, checkOverseerr } from '../services/tmdb.js';
+import { searchTMDB } from '../services/tmdb.js';
 import { supabase } from '../services/supabase.js';
 import { createRequest } from '../services/overseerr.js';
 import { EmbedBuilder } from 'discord.js';
@@ -26,11 +26,18 @@ export async function handleRequest(message, query) {
     
     // Create embeds for each result
     const embeds = options.map((result, index) => {
+      const status = result.mediaInfo?.status;
+      const isAvailable = status === 5;
+      
       return new EmbedBuilder()
         .setTitle(`${index + 1}. ${result.title || result.name}`)
-        .setDescription(`Release Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`)
+        .setDescription(
+          `Release Date: ${result.release_date || result.first_air_date}\n` +
+          `Overview: ${result.overview}\n` +
+          (isAvailable ? '✅ Already available in Plex!' : '')
+        )
         .setImage(`https://image.tmdb.org/t/p/w500${result.poster_path}`)
-        .setFooter({ text: `Type: ${result.media_type}` });
+        .setFooter({ text: `Type: ${result.media_type}${isAvailable ? ' • Available in Plex' : ''}` });
     });
 
     // Add instructions embed
@@ -74,10 +81,8 @@ export async function handleRequest(message, query) {
         const processingMsg = await message.reply('Processing your request...');
 
         try {
-          // Check if content exists in Plex
-          const exists = await checkOverseerr(selected.id);
-          
-          if (exists) {
+          // Check if content is already available
+          if (selected.mediaInfo?.status === 5) {
             await processingMsg.edit('This content is already available in Plex!');
             return;
           }
