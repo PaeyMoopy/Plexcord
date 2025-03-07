@@ -99,29 +99,20 @@ export function setupWebhookServer() {
           return res.sendStatus(200);
         }
 
-        let mediaId;
-        if (isMovie) {
-          // Extract IMDB ID from guid
-          mediaId = event.Metadata.guid.match(/tt(\d+)/)?.[1];
-          if (!mediaId) {
-            return res.status(400).json({ error: 'Invalid movie ID' });
-          }
-        } else {
-          // Extract show ID for episodes
-          mediaId = event.Metadata.guid.match(/\/(\d+)\?/)?.[1];
-          if (!mediaId) {
-            return res.status(400).json({ error: 'Invalid media ID' });
-          }
-        }
-        
-        // Find subscriptions for this media
-        const { data: subscriptions, error: subError } = await supabase
+        // Get the title based on media type
+        const title = isMovie ? 
+          event.Metadata.title : 
+          event.Metadata.grandparentTitle;
+
+        // Find subscriptions by title and media type
+        const { data: subscriptions, error } = await supabase
           .from('subscriptions')
           .select('*')
-          .eq('tmdb_id', isEpisode ? event.Metadata.grandparentRatingKey : mediaId);
+          .ilike('title', title)
+          .eq('media_type', isMovie ? 'movie' : 'tv');
 
-        if (subError) {
-          console.error('Error fetching subscriptions:', subError);
+        if (error) {
+          console.error('Error fetching subscriptions:', error);
           return res.status(500).json({ error: 'Database error' });
         }
 
@@ -136,32 +127,41 @@ export function setupWebhookServer() {
               const key = `${sub.user_id}_${sub.tmdb_id}`;
               const notification = episodeNotifications.get(key) || { episodes: [], timer: null };
               
-              notification.episodes.push({
-                season: parseInt(event.Metadata.parentIndex, 10),
-                episode: parseInt(event.Metadata.index, 10)
-              });
+              const seasonNumber = parseInt(event.Metadata.parentIndex, 10);
+              const episodeNumber = parseInt(event.Metadata.index, 10);
 
-              // Clear existing timer
-              if (notification.timer) {
-                clearTimeout(notification.timer);
+              if (!isNaN(seasonNumber) && !isNaN(episodeNumber)) {
+                notification.episodes.push({
+                  season: seasonNumber,
+                  episode: episodeNumber
+                });
+
+                // Clear existing timer
+                if (notification.timer) {
+                  clearTimeout(notification.timer);
+                }
+
+                // Set new timer for 5 minutes
+                notification.timer = setTimeout(() => {
+                  sendBatchedNotification(sub.user_id, sub.tmdb_id);
+                }, 5 * 60 * 1000);
+
+                episodeNotifications.set(key, notification);
               }
-
-              // Set new timer for 5 minutes
-              notification.timer = setTimeout(() => {
-                sendBatchedNotification(sub.user_id, sub.tmdb_id);
-              }, 5 * 60 * 1000);
-
-              episodeNotifications.set(key, notification);
             } else if (!sub.episode_subscription) {
               // Regular media notification (movies or show releases)
               const user = await client.users.fetch(sub.user_id);
               await user.send(`${sub.title} is now available on Plex! 🎉`);
 
               // Remove non-episode subscription after notification
-              await supabase
+              const { error: deleteError } = await supabase
                 .from('subscriptions')
                 .delete()
                 .eq('id', sub.id);
+
+              if (deleteError) {
+                console.error('Error deleting subscription:', deleteError);
+              }
             }
           } catch (error) {
             console.error('Error processing subscription:', error);
