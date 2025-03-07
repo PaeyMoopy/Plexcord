@@ -1,6 +1,6 @@
 import { searchTMDB } from '../services/tmdb.js';
 import { supabase } from '../services/supabase.js';
-import { createRequest } from '../services/overseerr.js';
+import { createRequest, checkAvailability } from '../services/overseerr.js';
 import { EmbedBuilder } from 'discord.js';
 
 export async function handleRequest(message, query) {
@@ -24,10 +24,14 @@ export async function handleRequest(message, query) {
     // Take first N results based on settings
     const options = results.slice(0, maxResults);
     
+    // Check availability for each result
+    const availabilityChecks = await Promise.all(
+      options.map(result => checkAvailability(result.media_type, result.id))
+    );
+
     // Create embeds for each result
     const embeds = options.map((result, index) => {
-      const status = result.mediaInfo?.status;
-      const isAvailable = status === 5;
+      const { isAvailable } = availabilityChecks[index];
       
       return new EmbedBuilder()
         .setTitle(`${index + 1}. ${result.title || result.name}`)
@@ -73,6 +77,7 @@ export async function handleRequest(message, query) {
 
         const index = Number(reaction.emoji.name[0]) - 1;
         const selected = options[index];
+        const { isAvailable, details } = availabilityChecks[index];
 
         // Stop the collector immediately to prevent double-selections
         collector.stop('selected');
@@ -82,17 +87,42 @@ export async function handleRequest(message, query) {
 
         try {
           // Check if content is already available
-          if (selected.mediaInfo?.status === 5) {
+          if (isAvailable) {
             await processingMsg.edit('This content is already available in Plex!');
             return;
           }
 
-          // Create request in Overseerr
-          await createRequest({
-            mediaType: selected.media_type,
-            mediaId: selected.id,
-            userId: user.id
-          });
+          // For TV shows, check which seasons are available
+          if (selected.media_type === 'tv' && details.seasons?.length > 0) {
+            const availableSeasons = new Set(
+              details.mediaInfo?.seasons?.map(s => s.seasonNumber) || []
+            );
+            
+            const requestableSeasons = details.seasons
+              .filter(season => season.seasonNumber > 0) // Filter out specials
+              .filter(season => !availableSeasons.has(season.seasonNumber))
+              .map(season => season.seasonNumber);
+
+            if (requestableSeasons.length === 0) {
+              await processingMsg.edit('All seasons are already available in Plex!');
+              return;
+            }
+
+            // Create request with specific seasons
+            await createRequest({
+              mediaType: selected.media_type,
+              mediaId: selected.id,
+              userId: user.id,
+              seasons: requestableSeasons
+            });
+          } else {
+            // Create movie request
+            await createRequest({
+              mediaType: selected.media_type,
+              mediaId: selected.id,
+              userId: user.id
+            });
+          }
 
           // Add subscription
           const { error: subError } = await supabase

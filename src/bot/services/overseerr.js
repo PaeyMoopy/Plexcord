@@ -52,7 +52,20 @@ async function getMediaDetails(mediaType, mediaId) {
   return response.json();
 }
 
-export async function createRequest({ mediaType, mediaId, userId }) {
+export async function checkAvailability(mediaType, mediaId) {
+  try {
+    const details = await getMediaDetails(mediaType, mediaId);
+    return {
+      isAvailable: details.mediaInfo?.status === 5,
+      details
+    };
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    throw error;
+  }
+}
+
+export async function createRequest({ mediaType, mediaId, userId, seasons }) {
   try {
     console.log(`Creating Overseerr request for media ${mediaId} (${mediaType}) for user ${userId}`);
     
@@ -87,17 +100,30 @@ export async function createRequest({ mediaType, mediaId, userId }) {
         throw new Error('No Sonarr server configured');
       }
 
-      // Get TV show details to get season information
-      const tvDetails = await getMediaDetails('tv', mediaId);
-      const seasons = tvDetails.seasons.map(season => season.seasonNumber);
+      // If seasons were provided, use them
+      if (seasons) {
+        Object.assign(requestBody, {
+          serverId: serverConfig.id,
+          profileId: serverConfig.activeProfileId,
+          rootFolder: serverConfig.activeDirectory,
+          seasons: seasons,
+          languageProfileId: serverConfig.activeLanguageProfileId
+        });
+      } else {
+        // Get TV show details to get season information
+        const tvDetails = await getMediaDetails('tv', mediaId);
+        const allSeasons = tvDetails.seasons
+          .filter(season => season.seasonNumber > 0) // Filter out specials
+          .map(season => season.seasonNumber);
 
-      Object.assign(requestBody, {
-        serverId: serverConfig.id,
-        profileId: serverConfig.activeProfileId,
-        rootFolder: serverConfig.activeDirectory,
-        seasons: seasons, // Request all available seasons
-        languageProfileId: serverConfig.activeLanguageProfileId
-      });
+        Object.assign(requestBody, {
+          serverId: serverConfig.id,
+          profileId: serverConfig.activeProfileId,
+          rootFolder: serverConfig.activeDirectory,
+          seasons: allSeasons,
+          languageProfileId: serverConfig.activeLanguageProfileId
+        });
+      }
     }
 
     const response = await fetch(
