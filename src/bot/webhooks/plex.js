@@ -11,7 +11,7 @@ export function setupWebhookServer() {
   // Security middleware
   app.use(helmet());
   app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*'
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']
   }));
 
   // Rate limiting
@@ -23,6 +23,9 @@ export function setupWebhookServer() {
 
   // Body parser with size limit
   app.use(express.json({ limit: '1mb' }));
+
+  // Serve static files from the dist directory
+  app.use(express.static('dist'));
 
   // Store episode notifications to batch them
   const episodeNotifications = new Map(); // key: userId_showId, value: { episodes: [], timer }
@@ -159,6 +162,11 @@ export function setupWebhookServer() {
       console.error('Error processing webhook:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
+  });
+
+  // Catch-all route to serve index.html for client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile('index.html', { root: 'dist' });
   });
 
   const port = process.env.WEBHOOK_PORT || 5000;

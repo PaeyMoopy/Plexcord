@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
-import { supabase } from '../bot/services/supabase';
+import { supabase } from '../services/supabase';
 import toast from 'react-hot-toast';
 
 interface Subscription {
@@ -10,6 +10,7 @@ interface Subscription {
   media_type: string;
   title: string;
   created_at: string;
+  episode_subscription: boolean;
 }
 
 export function Subscriptions() {
@@ -88,6 +89,9 @@ export function Subscriptions() {
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Notification Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Subscribed On
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -103,6 +107,9 @@ export function Subscriptions() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {subscription.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {subscription.episode_subscription ? 'Episodes' : 'Release'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(subscription.created_at).toLocaleDateString()}
