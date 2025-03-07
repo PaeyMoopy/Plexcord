@@ -16,7 +16,8 @@ OVERSEERR_API_KEY=your_overseerr_api_key
 TMDB_API_KEY=your_tmdb_api_key
 TAUTULLI_URL=your_tautulli_url
 TAUTULLI_API_KEY=your_tautulli_api_key
-WEBHOOK_PORT=5000`;
+WEBHOOK_PORT=5000
+ALLOWED_CHANNEL_ID=your_allowed_channel_id`;
       
       writeFileSync('.env', envContent);
       console.log('Created .env file. Please fill in your values.');
@@ -55,7 +56,8 @@ WEBHOOK_PORT=5000`;
           tmdb_api_key: process.env.TMDB_API_KEY,
           tautulli_url: process.env.TAUTULLI_URL,
           tautulli_api_key: process.env.TAUTULLI_API_KEY,
-          max_results: 5
+          max_results: 5,
+          allowed_channel_id: process.env.ALLOWED_CHANNEL_ID // Add allowed channel ID
         }]);
 
       if (insertError) {
