@@ -3,6 +3,7 @@ import { handleRequest } from './commands/request.js';
 import { handleSubscribe } from './commands/subscribe.js';
 import { handleList } from './commands/list.js';
 import { handleUnsubscribe } from './commands/unsubscribe.js';
+import { handleCommands } from './commands/commands.js';
 import { setupWebhookServer } from './webhooks/plex.js';
 import { loadSettings } from './services/settings.js';
 
@@ -37,8 +38,8 @@ async function startBot() {
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.DirectMessageReactions,
-        GatewayIntentBits.GuildMembers,  // Add this for member-related operations
-        GatewayIntentBits.GuildEmojisAndStickers  // Add this for custom emoji support
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildEmojisAndStickers
       ],
       failIfNotExists: false,
       retryLimit: 5,
@@ -90,6 +91,9 @@ async function startBot() {
             break;
           case '!unsubscribe':
             await handleUnsubscribe(message);
+            break;
+          case '!commands':
+            await handleCommands(message);
             break;
         }
       } catch (error) {

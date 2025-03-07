@@ -4,6 +4,8 @@ import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import { supabase } from '../services/supabase.js';
 import { client } from '../index.js';
+import { searchTMDB } from '../services/tmdb.js';
+import { EmbedBuilder } from 'discord.js';
 
 export function setupWebhookServer() {
   const app = express();
@@ -25,7 +27,7 @@ export function setupWebhookServer() {
   app.use(express.json({ limit: '1mb' }));
 
   // Store episode notifications to batch them
-  const episodeNotifications = new Map(); // key: userId_showId, value: { episodes: [], timer }
+  const episodeNotifications = new Map(); // key: userId_showId, value: { episodes: [], timer, posterPath }
 
   const sendBatchedNotification = async (userId, showId) => {
     try {
@@ -52,18 +54,25 @@ export function setupWebhookServer() {
         return acc;
       }, {});
 
-      // Create notification message
-      let message = `New episodes of "${subscription.title}" are available:\n`;
-      for (const [season, episodes] of Object.entries(seasons)) {
-        message += `\nSeason ${season}: ${episodes.length} new episode${episodes.length > 1 ? 's' : ''}`;
-        if (episodes.length <= 3) {
-          message += ` (Episode${episodes.length > 1 ? 's' : ''} ${episodes.join(', ')})`;
-        }
+      // Create notification embed
+      const embed = new EmbedBuilder()
+        .setTitle(`New Episodes Available: ${subscription.title}`)
+        .setDescription(
+          Object.entries(seasons).map(([season, episodes]) =>
+            `**Season ${season}**: ${episodes.length} new episode${episodes.length > 1 ? 's' : ''}` +
+            (episodes.length <= 3 ? ` (Episode${episodes.length > 1 ? 's' : ''} ${episodes.join(', ')})` : '')
+          ).join('\n')
+        )
+        .setColor(0x00ff00);
+
+      // Add poster if available
+      if (notifications.posterPath) {
+        embed.setThumbnail(`https://image.tmdb.org/t/p/w500${notifications.posterPath}`);
       }
 
       // Send notification
       const user = await client.users.fetch(userId);
-      await user.send(message);
+      await user.send({ embeds: [embed] });
 
       // Update last notified episode/season
       await supabase
@@ -120,12 +129,20 @@ export function setupWebhookServer() {
           return res.sendStatus(200);
         }
 
+        // Search TMDB for poster
+        const results = await searchTMDB(title, isMovie ? 'movie' : 'tv');
+        const posterPath = results[0]?.poster_path;
+
         for (const sub of subscriptions) {
           try {
             if (isEpisode && sub.episode_subscription) {
               // Batch episode notifications
               const key = `${sub.user_id}_${sub.tmdb_id}`;
-              const notification = episodeNotifications.get(key) || { episodes: [], timer: null };
+              const notification = episodeNotifications.get(key) || { 
+                episodes: [], 
+                timer: null,
+                posterPath
+              };
               
               const seasonNumber = parseInt(event.Metadata.parentIndex, 10);
               const episodeNumber = parseInt(event.Metadata.index, 10);
@@ -151,7 +168,17 @@ export function setupWebhookServer() {
             } else if (!sub.episode_subscription) {
               // Regular media notification (movies or show releases)
               const user = await client.users.fetch(sub.user_id);
-              await user.send(`${sub.title} is now available on Plex! 🎉`);
+              
+              const embed = new EmbedBuilder()
+                .setTitle('New Content Available! 🎉')
+                .setDescription(`**${sub.title}** is now available on Plex!`)
+                .setColor(0x00ff00);
+
+              if (posterPath) {
+                embed.setThumbnail(`https://image.tmdb.org/t/p/w500${posterPath}`);
+              }
+
+              await user.send({ embeds: [embed] });
 
               // Remove non-episode subscription after notification
               const { error: deleteError } = await supabase
