@@ -170,7 +170,9 @@ export function setupWebhookServer() {
   });
 
   const port = process.env.WEBHOOK_PORT || 5000;
-  app.listen(port, () => {
-    console.log(`Webhook server listening on port ${port}`);
+  const host = '192.168.2.219'; // Bind to specific IP
+
+  app.listen(port, host, () => {
+    console.log(`Webhook server listening on http://${host}:${port}`);
   });
 }

@@ -34,6 +34,11 @@ async function startBot() {
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.DirectMessageReactions,
+        GatewayIntentBits.GuildMembers,  // Add this for member-related operations
+        GatewayIntentBits.GuildEmojisAndStickers  // Add this for custom emoji support
       ],
       failIfNotExists: false,
       retryLimit: 5,
