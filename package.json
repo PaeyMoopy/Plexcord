@@ -9,7 +9,9 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start:bot": "node src/bot/index.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run start:bot\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run start:bot\"",
+    "start": "NODE_ENV=production node src/bot/index.js",
+    "start:pm2": "pm2 start ecosystem.config.js --env production"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
@@ -23,6 +25,7 @@
     "helmet": "^7.1.0",
     "lucide-react": "^0.344.0",
     "node-fetch": "^3.3.2",
+    "pm2": "^5.3.1",
     "postcss": "^8.4.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
