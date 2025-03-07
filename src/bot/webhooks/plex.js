@@ -24,9 +24,6 @@ export function setupWebhookServer() {
   // Body parser with size limit
   app.use(express.json({ limit: '1mb' }));
 
-  // Serve static files from the dist directory
-  app.use(express.static('dist'));
-
   // Store episode notifications to batch them
   const episodeNotifications = new Map(); // key: userId_showId, value: { episodes: [], timer }
 
@@ -39,7 +36,7 @@ export function setupWebhookServer() {
       const { data: subscription, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId.toString())
         .eq('tmdb_id', showId)
         .single();
 
@@ -95,12 +92,27 @@ export function setupWebhookServer() {
 
       // Handle media added event
       if (event.event === 'library.new') {
-        const mediaId = event.Metadata.guid.match(/\/(\d+)\?/)?.[1];
-        if (!mediaId) {
-          return res.status(400).json({ error: 'Invalid media ID' });
+        const isMovie = event.Metadata.type === 'movie';
+        const isEpisode = event.Metadata.type === 'episode';
+
+        if (!isMovie && !isEpisode) {
+          return res.sendStatus(200);
         }
 
-        const isEpisode = event.Metadata.type === 'episode';
+        let mediaId;
+        if (isMovie) {
+          // Extract IMDB ID from guid
+          mediaId = event.Metadata.guid.match(/tt(\d+)/)?.[1];
+          if (!mediaId) {
+            return res.status(400).json({ error: 'Invalid movie ID' });
+          }
+        } else {
+          // Extract show ID for episodes
+          mediaId = event.Metadata.guid.match(/\/(\d+)\?/)?.[1];
+          if (!mediaId) {
+            return res.status(400).json({ error: 'Invalid media ID' });
+          }
+        }
         
         // Find subscriptions for this media
         const { data: subscriptions, error: subError } = await supabase
@@ -125,8 +137,8 @@ export function setupWebhookServer() {
               const notification = episodeNotifications.get(key) || { episodes: [], timer: null };
               
               notification.episodes.push({
-                season: event.Metadata.parentIndex,
-                episode: event.Metadata.index
+                season: parseInt(event.Metadata.parentIndex, 10),
+                episode: parseInt(event.Metadata.index, 10)
               });
 
               // Clear existing timer
@@ -141,9 +153,9 @@ export function setupWebhookServer() {
 
               episodeNotifications.set(key, notification);
             } else if (!sub.episode_subscription) {
-              // Regular media notification
+              // Regular media notification (movies or show releases)
               const user = await client.users.fetch(sub.user_id);
-              await user.send(`${sub.title} is now available on Plex!`);
+              await user.send(`${sub.title} is now available on Plex! 🎉`);
 
               // Remove non-episode subscription after notification
               await supabase
@@ -164,13 +176,8 @@ export function setupWebhookServer() {
     }
   });
 
-  // Catch-all route to serve index.html for client-side routing
-  app.get('*', (req, res) => {
-    res.sendFile('index.html', { root: 'dist' });
-  });
-
   const port = process.env.WEBHOOK_PORT || 5000;
-  const host = '192.168.2.219'; // Bind to specific IP
+  const host = process.env.HOST || '0.0.0.0';
 
   app.listen(port, host, () => {
     console.log(`Webhook server listening on http://${host}:${port}`);

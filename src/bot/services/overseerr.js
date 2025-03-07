@@ -55,6 +55,16 @@ async function getMediaDetails(mediaType, mediaId) {
 export async function checkAvailability(mediaType, mediaId) {
   try {
     const details = await getMediaDetails(mediaType, mediaId);
+    
+    // For TV shows, consider it available if any season is available
+    if (mediaType === 'tv') {
+      const hasAvailableSeasons = details.mediaInfo?.seasons?.length > 0;
+      return {
+        isAvailable: hasAvailableSeasons || details.mediaInfo?.status === 5,
+        details
+      };
+    }
+    
     return {
       isAvailable: details.mediaInfo?.status === 5,
       details
@@ -65,7 +75,7 @@ export async function checkAvailability(mediaType, mediaId) {
   }
 }
 
-export async function createRequest({ mediaType, mediaId, userId, seasons }) {
+export async function createRequest({ mediaType, mediaId, userId }) {
   try {
     console.log(`Creating Overseerr request for media ${mediaId} (${mediaType}) for user ${userId}`);
     
@@ -100,30 +110,14 @@ export async function createRequest({ mediaType, mediaId, userId, seasons }) {
         throw new Error('No Sonarr server configured');
       }
 
-      // If seasons were provided, use them
-      if (seasons) {
-        Object.assign(requestBody, {
-          serverId: serverConfig.id,
-          profileId: serverConfig.activeProfileId,
-          rootFolder: serverConfig.activeDirectory,
-          seasons: seasons,
-          languageProfileId: serverConfig.activeLanguageProfileId
-        });
-      } else {
-        // Get TV show details to get season information
-        const tvDetails = await getMediaDetails('tv', mediaId);
-        const allSeasons = tvDetails.seasons
-          .filter(season => season.seasonNumber > 0) // Filter out specials
-          .map(season => season.seasonNumber);
-
-        Object.assign(requestBody, {
-          serverId: serverConfig.id,
-          profileId: serverConfig.activeProfileId,
-          rootFolder: serverConfig.activeDirectory,
-          seasons: allSeasons,
-          languageProfileId: serverConfig.activeLanguageProfileId
-        });
-      }
+      // Always request only season 1 for TV shows
+      Object.assign(requestBody, {
+        serverId: serverConfig.id,
+        profileId: serverConfig.activeProfileId,
+        rootFolder: serverConfig.activeDirectory,
+        seasons: [1],
+        languageProfileId: serverConfig.activeLanguageProfileId
+      });
     }
 
     const response = await fetch(

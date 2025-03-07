@@ -10,7 +10,7 @@ export async function handleSubscribe(message, query) {
 
   try {
     // Check for episode subscription flag
-    const isEpisodeSubscription = query.match(/(-e|-episode)(\s|$)/i);
+    const isEpisodeSubscription = query.toLowerCase().includes('-e') || query.toLowerCase().includes('-episode');
     let searchQuery = query.replace(/(-e|-episode)(\s|$)/i, '').trim();
 
     // Force TV search if episode subscription
@@ -31,7 +31,11 @@ export async function handleSubscribe(message, query) {
     const embeds = options.map((result, index) => {
       return new EmbedBuilder()
         .setTitle(`${index + 1}. ${result.title || result.name}`)
-        .setDescription(`Type: ${result.media_type}\nRelease Date: ${result.release_date || result.first_air_date}\nOverview: ${result.overview}`)
+        .setDescription(
+          `Type: ${result.media_type}\n` +
+          `Release Date: ${result.release_date || result.first_air_date}\n` +
+          `Overview: ${result.overview}`
+        )
         .setImage(`https://image.tmdb.org/t/p/w500${result.poster_path}`)
         .setFooter({ text: isEpisodeSubscription ? 'Episode notifications enabled' : 'Release notification only' });
     });
@@ -72,7 +76,7 @@ export async function handleSubscribe(message, query) {
       const { data: existingSubscription } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', message.author.id)
+        .eq('user_id', message.author.id.toString()) // Convert to string
         .eq('tmdb_id', selected.id)
         .single();
 
@@ -88,7 +92,7 @@ export async function handleSubscribe(message, query) {
       const { error } = await supabase
         .from('subscriptions')
         .insert({
-          user_id: message.author.id,
+          user_id: message.author.id.toString(), // Convert to string
           tmdb_id: selected.id,
           media_type: selected.media_type,
           title: selected.title || selected.name,
@@ -110,7 +114,7 @@ export async function handleSubscribe(message, query) {
     });
 
     collector.on('end', () => {
-      selectionMsg.reactions.removeAll();
+      selectionMsg.reactions.removeAll().catch(console.error);
     });
 
   } catch (error) {
