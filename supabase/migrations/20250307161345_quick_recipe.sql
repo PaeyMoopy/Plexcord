@@ -8,8 +8,6 @@
       - `overseerr_url` (text)
       - `overseerr_api_key` (text)
       - `tmdb_api_key` (text)
-      - `tautulli_url` (text)
-      - `tautulli_api_key` (text)
       - `max_results` (integer)
       - `created_at` (timestamp)
       - `updated_at` (timestamp)
@@ -27,8 +25,6 @@ CREATE TABLE IF NOT EXISTS settings (
   overseerr_url text,
   overseerr_api_key text,
   tmdb_api_key text,
-  tautulli_url text,
-  tautulli_api_key text,
   max_results integer DEFAULT 5,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),

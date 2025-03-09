@@ -5,14 +5,14 @@ import { handleList } from './commands/list.js';
 import { handleUnsubscribe } from './commands/unsubscribe.js';
 import { handleCommands } from './commands/commands.js';
 import { setupWebhookServer } from './webhooks/plex.js';
-import { loadSettings } from './services/settings.js';
+import { config } from 'dotenv';
 
 let client;
 
 async function startBot() {
   try {
-    // Load settings from database
-    await loadSettings();
+    // Load environment variables
+    config();
 
     // Validate required settings
     const requiredSettings = [
@@ -22,13 +22,12 @@ async function startBot() {
       'TMDB_API_KEY',
       'VITE_SUPABASE_URL',
       'VITE_SUPABASE_ANON_KEY',
-      'ALLOWED_CHANNEL_ID' // Add allowed channel ID setting
+      'ALLOWED_CHANNEL_ID'
     ];
 
-    for (const setting of requiredSettings) {
-      if (!process.env[setting]) {
-        throw new Error(`Missing required setting: ${setting}`);
-      }
+    const missingSettings = requiredSettings.filter(setting => !process.env[setting]);
+    if (missingSettings.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingSettings.join(', ')}`);
     }
 
     client = new Client({
