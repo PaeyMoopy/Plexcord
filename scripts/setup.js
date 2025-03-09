@@ -1,5 +1,25 @@
 import { config } from 'dotenv';
 import { writeFileSync, existsSync } from 'fs';
+import { Client, GatewayIntentBits } from 'discord.js';
+
+async function validateDiscordToken(token) {
+  const client = new Client({
+    intents: [GatewayIntentBits.Guilds]
+  });
+
+  try {
+    await client.login(token);
+    await client.destroy(); // Clean shutdown
+    return true;
+  } catch (error) {
+    if (error.code === 'TokenInvalid') {
+      console.error('\nERROR: Invalid Discord token. Please check your token and try again.');
+      console.error('You can get a new token from the Discord Developer Portal:');
+      console.error('https://discord.com/developers/applications\n');
+    }
+    return false;
+  }
+}
 
 async function setup() {
   try {
@@ -53,6 +73,14 @@ ALLOWED_CHANNEL_ID=your_allowed_channel_id`;
       console.error('\nPlease add these variables to your .env file and run setup again.');
       process.exit(1);
     }
+
+    // Validate Discord token
+    console.log('\nValidating Discord token...');
+    const isValidToken = await validateDiscordToken(process.env.DISCORD_TOKEN);
+    if (!isValidToken) {
+      process.exit(1);
+    }
+    console.log('Discord token is valid!');
 
     // Print current configuration (excluding sensitive values)
     console.log('\nCurrent configuration:');
