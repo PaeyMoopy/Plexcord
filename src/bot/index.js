@@ -7,13 +7,46 @@ import { handleCommands } from './commands/commands.js';
 import { setupWebhookServer } from './webhooks/plex.js';
 import { startRequestChecking } from './services/overseerrRequests.js';
 import { config } from 'dotenv';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
 
 let client;
 
 async function startBot() {
   try {
-    // Load environment variables
-    config();
+    // Load environment variables - try multiple paths to find .env
+    const envPaths = [
+      '.env',
+      '../.env',
+      '../../.env',
+      resolve(process.cwd(), '.env'),
+      resolve(process.cwd(), '../.env'),
+      '/root/plexassistant/Plexcord/.env'
+    ];
+
+    let envLoaded = false;
+    for (const path of envPaths) {
+      if (existsSync(path)) {
+        console.log(`Loading environment from: ${path}`);
+        config({ path });
+        envLoaded = true;
+        break;
+      }
+    }
+
+    if (!envLoaded) {
+      console.log('Could not find .env file, attempting to load from process.env directly');
+    }
+
+    // Print all environment variables for debugging (mask sensitive ones)
+    console.log('Environment variables loaded:');
+    console.log('DISCORD_TOKEN: ' + (process.env.DISCORD_TOKEN ? '********' : 'undefined'));
+    console.log('OVERSEERR_URL: ' + process.env.OVERSEERR_URL);
+    console.log('OVERSEERR_API_KEY: ' + (process.env.OVERSEERR_API_KEY ? '********' : 'undefined'));
+    console.log('TMDB_API_KEY: ' + (process.env.TMDB_API_KEY ? '********' : 'undefined'));
+    console.log('WEBHOOK_PORT: ' + process.env.WEBHOOK_PORT);
+    console.log('ALLOWED_CHANNEL_ID: ' + process.env.ALLOWED_CHANNEL_ID);
+    console.log('OVERSEERR_USER_MAP: ' + process.env.OVERSEERR_USER_MAP);
 
     // Validate required settings
     const requiredSettings = [

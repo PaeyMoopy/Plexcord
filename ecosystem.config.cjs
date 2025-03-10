@@ -7,6 +7,7 @@ module.exports = {
     max_restarts: 5,
     env: {
       NODE_ENV: 'production'
-    }
+    },
+    env_file: '.env'
   }]
 }
