@@ -112,7 +112,7 @@ export async function handleRequest(message, query) {
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: message.author.id, // Pass Discord user ID to createRequest, which will handle mapping
+              userId: message.author.id.toString(), // Pass Discord user ID as string
               seasons: requestableSeasons
             });
           } else {
@@ -120,7 +120,7 @@ export async function handleRequest(message, query) {
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: message.author.id // Pass Discord user ID to createRequest, which will handle mapping
+              userId: message.author.id.toString() // Pass Discord user ID as string
             });
           }
 

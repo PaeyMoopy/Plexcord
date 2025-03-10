@@ -13,13 +13,15 @@ for (const [overseerId, discordId] of Object.entries(userMap)) {
 
 // Get Discord ID from Overseerr ID (for notifications)
 export function getDiscordId(overseerId) {
-  return userMap[overseerId];
+  return userMap[overseerId?.toString()];
 }
 
 // Get Overseerr ID from Discord ID (for requests)
 export function getOverseerId(discordId) {
+  // Convert Discord ID to string to ensure consistent lookup
+  const id = discordId?.toString();
   // Return as number since Overseerr API expects numeric user IDs
-  return reverseUserMap[discordId] || 6; // Fallback to ID 6 if no mapping exists
+  return reverseUserMap[id] || 6; // Fallback to ID 6 if no mapping exists
 }
 
 export { userMap };
