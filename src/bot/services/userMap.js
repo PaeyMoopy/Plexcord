@@ -1,27 +1,30 @@
 // Map of Overseerr user IDs to Discord user IDs
 // Parse user mapping from environment variable
-// Format in .env: OVERSEERR_USER_MAP={"overseerr_id":"discord_id","6":"265316362900078592"}
+// Format in .env: OVERSEERR_USER_MAP={"1":"265316362900078592"}
+// Note: Discord IDs must be strings to preserve precision
 const userMap = process.env.OVERSEERR_USER_MAP ? 
   JSON.parse(process.env.OVERSEERR_USER_MAP) : 
   {};
 
 // Create reverse mapping (Discord ID -> Overseerr ID)
-const reverseUserMap = {};
+const reverseUserMap = new Map();
 for (const [overseerId, discordId] of Object.entries(userMap)) {
-  reverseUserMap[discordId] = parseInt(overseerId, 10);
+  // Store Overseerr ID as number, Discord ID as string
+  reverseUserMap.set(discordId, Number(overseerId));
 }
 
 // Get Discord ID from Overseerr ID (for notifications)
 export function getDiscordId(overseerId) {
-  return userMap[overseerId?.toString()];
+  // Convert Overseerr ID to string for lookup
+  return userMap[overseerId.toString()];
 }
 
 // Get Overseerr ID from Discord ID (for requests)
 export function getOverseerId(discordId) {
-  // Convert Discord ID to string to ensure consistent lookup
+  // Ensure Discord ID is a string
   const id = discordId?.toString();
-  // Return as number since Overseerr API expects numeric user IDs
-  return reverseUserMap[id] || 6; // Fallback to ID 6 if no mapping exists
+  // Get mapped Overseerr ID (as number) or fallback to 6
+  return reverseUserMap.get(id) || 6;
 }
 
 export { userMap };
