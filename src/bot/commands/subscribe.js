@@ -9,6 +9,29 @@ export async function handleSubscribe(message, query) {
   }
 
   try {
+    // Check if subscriptions table exists
+    const { error: tableCheckError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .limit(1);
+
+    if (tableCheckError?.code === '42P01') {
+      const createTableSQL = `
+CREATE TABLE subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  tmdb_id INTEGER NOT NULL,
+  media_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  episode_subscription BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+  UNIQUE(user_id, tmdb_id)
+);`;
+      console.error('Error: subscriptions table does not exist. Create it using this SQL:', createTableSQL);
+      await message.reply('Database setup incomplete. Please contact the bot administrator.');
+      return;
+    }
+
     // Check for episode subscription flag
     const isEpisodeSubscription = query.toLowerCase().includes('-e') || query.toLowerCase().includes('-episode');
     let searchQuery = query.replace(/(-e|-episode)(\s|$)/i, '').trim();
