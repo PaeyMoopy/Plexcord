@@ -8,7 +8,7 @@ const userMap = process.env.OVERSEERR_USER_MAP ?
 // Create reverse mapping (Discord ID -> Overseerr ID)
 const reverseUserMap = {};
 for (const [overseerId, discordId] of Object.entries(userMap)) {
-  reverseUserMap[discordId] = overseerId;
+  reverseUserMap[discordId] = parseInt(overseerId, 10);
 }
 
 // Get Discord ID from Overseerr ID (for notifications)
@@ -18,7 +18,8 @@ export function getDiscordId(overseerId) {
 
 // Get Overseerr ID from Discord ID (for requests)
 export function getOverseerId(discordId) {
-  return reverseUserMap[discordId] || "6"; // Fallback to ID 6 if no mapping exists
+  // Return as number since Overseerr API expects numeric user IDs
+  return reverseUserMap[discordId] || 6; // Fallback to ID 6 if no mapping exists
 }
 
 export { userMap };

@@ -112,7 +112,7 @@ export async function handleRequest(message, query) {
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: user.id,
+              userId: message.author.id, // Pass Discord user ID to createRequest, which will handle mapping
               seasons: requestableSeasons
             });
           } else {
@@ -120,13 +120,13 @@ export async function handleRequest(message, query) {
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: user.id
+              userId: message.author.id // Pass Discord user ID to createRequest, which will handle mapping
             });
           }
 
           // Add subscription to SQLite database
           const success = await addSubscription(
-            user.id.toString(),
+            message.author.id.toString(),
             selected.id.toString(),
             selected.media_type,
             selected.title || selected.name,
