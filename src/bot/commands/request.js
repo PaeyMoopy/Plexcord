@@ -1,6 +1,6 @@
 import { searchTMDB } from '../services/tmdb.js';
-import { supabase } from '../services/supabase.js';
 import { createRequest, checkAvailability } from '../services/overseerr.js';
+import { addSubscription } from '../services/database.js';
 import { EmbedBuilder } from 'discord.js';
 
 export async function handleRequest(message, query) {
@@ -124,18 +124,17 @@ export async function handleRequest(message, query) {
             });
           }
 
-          // Add subscription
-          const { error: subError } = await supabase
-            .from('subscriptions')
-            .insert({
-              user_id: user.id,
-              tmdb_id: selected.id,
-              media_type: selected.media_type,
-              title: selected.title || selected.name
-            });
+          // Add subscription to SQLite database
+          const success = await addSubscription(
+            user.id.toString(),
+            selected.id.toString(),
+            selected.media_type,
+            selected.title || selected.name,
+            selected.media_type === 'tv' // episode_subscription is true for TV shows
+          );
 
-          if (subError) {
-            console.error('Error adding subscription:', subError);
+          if (!success) {
+            console.error('Error adding subscription to database');
             throw new Error('Failed to add subscription');
           }
 

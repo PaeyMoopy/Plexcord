@@ -1,10 +1,10 @@
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { supabase } from '../services/supabase.js';
 import { client } from '../index.js';
 import { searchTMDB } from '../services/tmdb.js';
 import { EmbedBuilder } from 'discord.js';
+import { getSubscriptionByTitle, updateSubscription, removeSubscription } from '../services/database.js';
 
 export function setupWebhookServer() {
   const app = express();
@@ -31,15 +31,9 @@ export function setupWebhookServer() {
       if (!notifications || !notifications.episodes.length) return;
 
       // Get show details from subscription
-      const { data: subscription, error: subError } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId.toString())
-        .eq('tmdb_id', showId)
-        .single();
-
-      if (subError || !subscription) {
-        console.error('Error fetching subscription:', subError);
+      const subscription = getSubscriptionByTitle(userId.toString(), showId.toString());
+      if (!subscription) {
+        console.error('No subscription found for:', { userId, showId });
         return;
       }
 
@@ -52,7 +46,7 @@ export function setupWebhookServer() {
 
       // Create notification embed
       const embed = new EmbedBuilder()
-        .setTitle(`New Episodes Available: ${subscription.title}`)
+        .setTitle(`New Episodes Available: ${subscription.media_title}`)
         .setDescription(
           Object.entries(seasons).map(([season, episodes]) =>
             `**Season ${season}**: ${episodes.length} new episode${episodes.length > 1 ? 's' : ''}` +
@@ -71,13 +65,16 @@ export function setupWebhookServer() {
       await user.send({ embeds: [embed] });
 
       // Update last notified episode/season
-      await supabase
-        .from('subscriptions')
-        .update({
-          last_notified_season: Math.max(...Object.keys(seasons).map(Number)),
-          last_notified_episode: Math.max(...notifications.episodes.map(e => e.episode))
-        })
-        .eq('id', subscription.id);
+      const success = updateSubscription(
+        userId.toString(),
+        showId.toString(),
+        Math.max(...Object.keys(seasons).map(Number)),
+        Math.max(...notifications.episodes.map(e => e.episode))
+      );
+
+      if (!success) {
+        console.error('Failed to update subscription:', { userId, showId });
+      }
 
       // Clear the notifications
       episodeNotifications.delete(`${userId}_${showId}`);
@@ -110,17 +107,7 @@ export function setupWebhookServer() {
           event.Metadata.grandparentTitle;
 
         // Find subscriptions by title and media type
-        const { data: subscriptions, error } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .ilike('title', title)
-          .eq('media_type', isMovie ? 'movie' : 'tv');
-
-        if (error) {
-          console.error('Error fetching subscriptions:', error);
-          return res.status(500).json({ error: 'Database error' });
-        }
-
+        const subscriptions = getSubscriptionByTitle(title, isMovie ? 'movie' : 'tv');
         if (!subscriptions?.length) {
           return res.sendStatus(200);
         }
@@ -133,7 +120,7 @@ export function setupWebhookServer() {
           try {
             if (isEpisode && sub.episode_subscription) {
               // Batch episode notifications
-              const key = `${sub.user_id}_${sub.tmdb_id}`;
+              const key = `${sub.user_id}_${sub.media_id}`;
               const notification = episodeNotifications.get(key) || { 
                 episodes: [], 
                 timer: null,
@@ -156,7 +143,7 @@ export function setupWebhookServer() {
 
                 // Set new timer for 5 minutes
                 notification.timer = setTimeout(() => {
-                  sendBatchedNotification(sub.user_id, sub.tmdb_id);
+                  sendBatchedNotification(sub.user_id, sub.media_id);
                 }, 5 * 60 * 1000);
 
                 episodeNotifications.set(key, notification);
@@ -167,7 +154,7 @@ export function setupWebhookServer() {
               
               const embed = new EmbedBuilder()
                 .setTitle('New Content Available! 🎉')
-                .setDescription(`**${sub.title}** is now available on Plex!`)
+                .setDescription(`**${sub.media_title}** is now available on Plex!`)
                 .setColor(0x00ff00);
 
               if (posterPath) {
@@ -177,13 +164,9 @@ export function setupWebhookServer() {
               await user.send({ embeds: [embed] });
 
               // Remove non-episode subscription after notification
-              const { error: deleteError } = await supabase
-                .from('subscriptions')
-                .delete()
-                .eq('id', sub.id);
-
-              if (deleteError) {
-                console.error('Error deleting subscription:', deleteError);
+              const success = removeSubscription(sub.user_id, sub.media_id);
+              if (!success) {
+                console.error('Error removing subscription:', { userId: sub.user_id, mediaId: sub.media_id });
               }
             }
           } catch (error) {
@@ -199,10 +182,9 @@ export function setupWebhookServer() {
     }
   });
 
+  // Start server
   const port = process.env.WEBHOOK_PORT || 5000;
-  const host = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces
-
-  app.listen(port, host, () => {
-    console.log(`Webhook server listening on http://${host}:${port}`);
+  app.listen(port, () => {
+    console.log(`Webhook server listening on port ${port}`);
   });
 }

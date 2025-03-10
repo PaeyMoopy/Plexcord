@@ -6,7 +6,6 @@ import { handleUnsubscribe } from './commands/unsubscribe.js';
 import { handleCommands } from './commands/commands.js';
 import { setupWebhookServer } from './webhooks/plex.js';
 import { startRequestChecking } from './services/overseerrRequests.js';
-import { initializeDatabase } from './services/database.js';
 import { config } from 'dotenv';
 
 let client;
@@ -33,15 +32,13 @@ async function startBot() {
 
     // Validate OVERSEERR_USER_MAP is valid JSON
     try {
-      JSON.parse(process.env.OVERSEERR_USER_MAP);
+      const userMap = JSON.parse(process.env.OVERSEERR_USER_MAP);
+      if (typeof userMap !== 'object' || userMap === null) {
+        throw new Error('OVERSEERR_USER_MAP must be a JSON object');
+      }
     } catch (error) {
       throw new Error('OVERSEERR_USER_MAP must be a valid JSON string. Format: {"overseerr_id":"discord_id"}');
     }
-
-    // Initialize SQLite database
-    console.log('Initializing database...');
-    await initializeDatabase();
-    console.log('Database initialized successfully!');
 
     client = new Client({
       intents: [

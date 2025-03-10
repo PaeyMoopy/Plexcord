@@ -1,86 +1,114 @@
 import Database from 'better-sqlite3';
-import path from 'path';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '..', '..', 'data', 'bot.db');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dbPath = join(__dirname, '..', '..', '..', 'data', 'bot.db');
+const db = new Database(dbPath);
 
-let db;
+// Initialize database with required tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    user_id TEXT NOT NULL,
+    media_id TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    media_title TEXT NOT NULL,
+    episode_subscription BOOLEAN NOT NULL DEFAULT 0,
+    last_notified_season INTEGER,
+    last_notified_episode INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, media_id)
+  )
+`);
 
-export function initializeDatabase() {
+// Prepare statements for better performance
+const addSubscriptionStmt = db.prepare(`
+  INSERT OR REPLACE INTO subscriptions (
+    user_id, media_id, media_type, media_title, episode_subscription
+  ) VALUES (?, ?, ?, ?, ?)
+`);
+
+const getSubscriptionsStmt = db.prepare(`
+  SELECT * FROM subscriptions WHERE user_id = ?
+`);
+
+const getSubscriptionByTitleStmt = db.prepare(`
+  SELECT * FROM subscriptions 
+  WHERE media_title LIKE ? 
+  AND media_type = ?
+`);
+
+const removeSubscriptionStmt = db.prepare(`
+  DELETE FROM subscriptions 
+  WHERE user_id = ? AND media_id = ?
+`);
+
+const updateSubscriptionStmt = db.prepare(`
+  UPDATE subscriptions 
+  SET last_notified_season = ?, 
+      last_notified_episode = ? 
+  WHERE user_id = ? AND media_id = ?
+`);
+
+/**
+ * Add a new subscription to the database
+ */
+export function addSubscription(userId, mediaId, mediaType, mediaTitle, episodeSubscription = false) {
   try {
-    db = new Database(dbPath);
-    
-    // Create subscriptions table if it doesn't exist
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        media_type TEXT NOT NULL,
-        media_id INTEGER NOT NULL,
-        media_title TEXT NOT NULL,
-        episode_subscription BOOLEAN DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, media_id)
-      );
-    `);
-
-    // Prepare statements for better performance
-    const statements = {
-      getSubscriptions: db.prepare('SELECT * FROM subscriptions WHERE user_id = ?'),
-      addSubscription: db.prepare(`
-        INSERT INTO subscriptions (user_id, media_type, media_id, media_title, episode_subscription)
-        VALUES (?, ?, ?, ?, ?)
-      `),
-      removeSubscription: db.prepare('DELETE FROM subscriptions WHERE user_id = ? AND media_id = ?'),
-      getSubscription: db.prepare('SELECT * FROM subscriptions WHERE user_id = ? AND media_id = ?'),
-      getAllSubscriptionsForMedia: db.prepare('SELECT * FROM subscriptions WHERE media_id = ?')
-    };
-
-    return { db, statements };
-  } catch (error) {
-    console.error('Error initializing database:', error);
-    throw error;
-  }
-}
-
-// Export database operations
-export function getSubscriptions(userId) {
-  return db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);
-}
-
-export function addSubscription(userId, mediaType, mediaId, mediaTitle, episodeSubscription) {
-  try {
-    db.prepare(`
-      INSERT INTO subscriptions (user_id, media_type, media_id, media_title, episode_subscription)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(userId, mediaType, mediaId, mediaTitle, episodeSubscription ? 1 : 0);
+    addSubscriptionStmt.run(userId, mediaId, mediaType, mediaTitle, episodeSubscription ? 1 : 0);
     return true;
   } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      // Update episode_subscription if subscription exists
-      db.prepare(`
-        UPDATE subscriptions 
-        SET episode_subscription = ?
-        WHERE user_id = ? AND media_id = ?
-      `).run(episodeSubscription ? 1 : 0, userId, mediaId);
-      return true;
-    }
-    throw error;
+    console.error('Error adding subscription:', error);
+    return false;
   }
 }
 
+/**
+ * Get all subscriptions for a user
+ */
+export function getSubscriptions(userId) {
+  try {
+    return getSubscriptionsStmt.all(userId);
+  } catch (error) {
+    console.error('Error getting subscriptions:', error);
+    return [];
+  }
+}
+
+/**
+ * Get subscriptions by title (case-insensitive) and media type
+ */
+export function getSubscriptionByTitle(title, mediaType) {
+  try {
+    return getSubscriptionByTitleStmt.all(title, mediaType);
+  } catch (error) {
+    console.error('Error getting subscription by title:', error);
+    return [];
+  }
+}
+
+/**
+ * Remove a subscription from the database
+ */
 export function removeSubscription(userId, mediaId) {
-  const result = db.prepare('DELETE FROM subscriptions WHERE user_id = ? AND media_id = ?')
-    .run(userId, mediaId);
-  return result.changes > 0;
+  try {
+    const result = removeSubscriptionStmt.run(userId, mediaId);
+    return result.changes > 0;
+  } catch (error) {
+    console.error('Error removing subscription:', error);
+    return false;
+  }
 }
 
-export function getSubscription(userId, mediaId) {
-  return db.prepare('SELECT * FROM subscriptions WHERE user_id = ? AND media_id = ?')
-    .get(userId, mediaId);
-}
-
-export function getAllSubscriptionsForMedia(mediaId) {
-  return db.prepare('SELECT * FROM subscriptions WHERE media_id = ?').all(mediaId);
+/**
+ * Update the last notified season/episode for a subscription
+ */
+export function updateSubscription(userId, mediaId, season, episode) {
+  try {
+    const result = updateSubscriptionStmt.run(season, episode, userId, mediaId);
+    return result.changes > 0;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return false;
+  }
 }
