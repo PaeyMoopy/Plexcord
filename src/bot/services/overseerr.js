@@ -1,27 +1,61 @@
 import fetch from 'node-fetch';
 
-// Load user mapping from environment
+// Utility functions to get environment variables when needed
+function getOverseerrUrl() {
+  const url = process.env.OVERSEERR_URL?.trim();
+  if (!url) {
+    console.error('OVERSEERR_URL is empty or undefined! Check your .env file.');
+  }
+  return url;
+}
+
+function getOverseerrApiKey() {
+  const key = process.env.OVERSEERR_API_KEY?.trim();
+  if (!key) {
+    console.error('OVERSEERR_API_KEY is empty or undefined! Check your .env file.');
+  }
+  return key;
+}
+
+function getUserMap() {
+  console.log('Raw OVERSEERR_USER_MAP:', process.env.OVERSEERR_USER_MAP);
+  
+  const rawMap = process.env.OVERSEERR_USER_MAP;
+  if (!rawMap) {
+    console.error('OVERSEERR_USER_MAP is empty or undefined! Check your .env file.');
+    return {};
+  }
+  
+  try {
+    const userMap = JSON.parse(rawMap);
+    console.log('Loaded Overseerr user map:', {
+      raw: rawMap,
+      parsed: userMap,
+      type: typeof rawMap
+    });
+    return userMap;
+  } catch (error) {
+    console.error('Failed to parse OVERSEERR_USER_MAP:', error);
+    return {};
+  }
+}
+
+// Overseerr user mapping helper functions
 // Format: {"overseerr_id":"discord_id"}
 // Example: {"1":"265316362900078592"}
-console.log('Raw OVERSEERR_USER_MAP:', process.env.OVERSEERR_USER_MAP);
-
-const userMap = process.env.OVERSEERR_USER_MAP ? 
-  JSON.parse(process.env.OVERSEERR_USER_MAP) : 
-  {};
-
-console.log('Loaded Overseerr user map:', {
-  raw: process.env.OVERSEERR_USER_MAP,
-  parsed: userMap,
-  type: typeof process.env.OVERSEERR_USER_MAP
-});
 
 // Get Overseerr ID from Discord ID (for requests)
 function getOverseerId(discordId) {
+  const userMap = getUserMap();
   const targetDiscordId = discordId?.toString();
+  
   console.log('Looking up Overseerr ID for Discord user:', targetDiscordId);
+  console.log('User map entries:', Object.entries(userMap));
+  console.log('User map keys:', Object.keys(userMap));
   
   // Find Overseerr ID that maps to this Discord ID
   for (const [overseerId, mappedDiscordId] of Object.entries(userMap)) {
+    console.log(`Comparing: stored Discord ID "${mappedDiscordId}" (${typeof mappedDiscordId}) with target "${targetDiscordId}" (${typeof targetDiscordId})`);
     if (mappedDiscordId === targetDiscordId) {
       console.log(`Found mapping: Discord ${targetDiscordId} -> Overseerr ${overseerId}`);
       return Number(overseerId);
@@ -34,8 +68,10 @@ function getOverseerId(discordId) {
 
 // Get Discord ID from Overseerr ID (for notifications)
 export function getDiscordId(overseerId) {
+  const userMap = getUserMap();
   const id = overseerId?.toString();
   const discordId = userMap[id];
+  
   console.log('Looking up Discord ID:', {
     overseerId: id,
     discordId: discordId || 'none'
@@ -44,11 +80,14 @@ export function getDiscordId(overseerId) {
 }
 
 async function getRadarrServers() {
+  const url = getOverseerrUrl();
+  const apiKey = getOverseerrApiKey();
+  
   const response = await fetch(
-    `${process.env.OVERSEERR_URL}/api/v1/settings/radarr`,
+    `${url}/api/v1/settings/radarr`,
     {
       headers: {
-        'X-Api-Key': process.env.OVERSEERR_API_KEY
+        'X-Api-Key': apiKey
       }
     }
   );
@@ -61,11 +100,14 @@ async function getRadarrServers() {
 }
 
 async function getSonarrServers() {
+  const url = getOverseerrUrl();
+  const apiKey = getOverseerrApiKey();
+  
   const response = await fetch(
-    `${process.env.OVERSEERR_URL}/api/v1/settings/sonarr`,
+    `${url}/api/v1/settings/sonarr`,
     {
       headers: {
-        'X-Api-Key': process.env.OVERSEERR_API_KEY
+        'X-Api-Key': apiKey
       }
     }
   );
@@ -78,12 +120,15 @@ async function getSonarrServers() {
 }
 
 async function getMediaDetails(mediaType, mediaId) {
+  const url = getOverseerrUrl();
+  const apiKey = getOverseerrApiKey();
+  
   const endpoint = mediaType === 'movie' ? 'movie' : 'tv';
   const response = await fetch(
-    `${process.env.OVERSEERR_URL}/api/v1/${endpoint}/${mediaId}`,
+    `${url}/api/v1/${endpoint}/${mediaId}`,
     {
       headers: {
-        'X-Api-Key': process.env.OVERSEERR_API_KEY
+        'X-Api-Key': apiKey
       }
     }
   );
@@ -172,13 +217,16 @@ export async function createRequest({ mediaType, mediaId, userId }) {
       });
     }
 
+    const url = getOverseerrUrl();
+    const apiKey = getOverseerrApiKey();
+    
     const response = await fetch(
-      `${process.env.OVERSEERR_URL}/api/v1/request`,
+      `${url}/api/v1/request`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Api-Key': process.env.OVERSEERR_API_KEY
+          'X-Api-Key': apiKey
         },
         body: JSON.stringify(requestBody)
       }
