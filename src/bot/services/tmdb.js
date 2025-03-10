@@ -1,14 +1,26 @@
 import fetch from 'node-fetch';
 
-// Sanitize the API key by trimming any whitespace
-const TMDB_API_KEY = process.env.TMDB_API_KEY ? process.env.TMDB_API_KEY.trim() : '';
+// Don't load API key at the module level
+// We'll access it from functions when needed
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-// Test the API key with a simple request when the module loads
-async function testApiKey() {
+// Function to get the API key at runtime
+function getApiKey() {
+  const key = process.env.TMDB_API_KEY?.trim();
+  if (!key) {
+    console.error('TMDB API key is empty or undefined! Check your .env file.');
+  }
+  return key;
+}
+
+// Test the API key - but this will be called manually, not on module load
+export async function testApiKey() {
   try {
+    const key = getApiKey();
+    if (!key) return false;
+
     console.log('Testing TMDB API key...');
-    const testUrl = `${TMDB_BASE_URL}/movie/550?api_key=${TMDB_API_KEY}`;
+    const testUrl = `${TMDB_BASE_URL}/movie/550?api_key=${key}`;
     
     const response = await fetch(testUrl);
     if (response.ok) {
@@ -26,11 +38,14 @@ async function testApiKey() {
   }
 }
 
-// Run the test
-testApiKey().catch(console.error);
-
 export async function searchTMDB(query, mediaType = null) {
   try {
+    // Get API key at runtime
+    const TMDB_API_KEY = getApiKey();
+    if (!TMDB_API_KEY) {
+      throw new Error('TMDB API key is not configured');
+    }
+
     // Input validation
     if (!query || typeof query !== 'string') {
       throw new Error('Invalid search query');
@@ -51,13 +66,9 @@ export async function searchTMDB(query, mediaType = null) {
     const endpoint = forcedMediaType ? `search/${forcedMediaType}` : 'search/multi';
     
     // Log the TMDB API key for debugging (first few chars + last few chars)
-    if (TMDB_API_KEY) {
-      const firstChars = TMDB_API_KEY.substring(0, 4);
-      const lastChars = TMDB_API_KEY.substring(TMDB_API_KEY.length - 4);
-      console.log(`TMDB API key partial: ${firstChars}...${lastChars} (length: ${TMDB_API_KEY.length})`);
-    } else {
-      console.error('TMDB API key is empty or undefined!');
-    }
+    const firstChars = TMDB_API_KEY.substring(0, 4);
+    const lastChars = TMDB_API_KEY.substring(TMDB_API_KEY.length - 4);
+    console.log(`TMDB API key partial: ${firstChars}...${lastChars} (length: ${TMDB_API_KEY.length})`);
     
     // Construct the full URL for debugging (but mask the API key in logs)
     const fullUrl = `${TMDB_BASE_URL}/${endpoint}?api_key=XXXXX&query=${encodedQuery}&include_adult=false`;
