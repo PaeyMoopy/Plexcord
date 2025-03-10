@@ -1,6 +1,6 @@
 import { searchTMDB } from '../services/tmdb.js';
 import { EmbedBuilder } from 'discord.js';
-import { addSubscription, getSubscription } from '../services/database.js';
+import { addSubscription, getSubscriptions } from '../services/database.js';
 
 export async function handleSubscribe(message, query) {
   if (!query) {
@@ -74,20 +74,25 @@ export async function handleSubscribe(message, query) {
 
       try {
         // Check for existing subscription
-        const existingSubscription = getSubscription(message.author.id.toString(), selected.id);
+        const subscriptions = getSubscriptions(message.author.id.toString());
+        const existingSubscription = subscriptions.find(sub => sub.media_id === selected.id.toString());
 
         // Add or update subscription
-        await addSubscription(
+        const success = addSubscription(
           message.author.id.toString(),
+          selected.id.toString(),
           selected.media_type,
-          selected.id,
           selected.title || selected.name,
           isEpisodeSubscription
         );
 
+        if (!success) {
+          throw new Error('Failed to add subscription');
+        }
+
         // Send appropriate response
         if (existingSubscription) {
-          if (existingSubscription.episode_subscription === isEpisodeSubscription) {
+          if (existingSubscription.episode_subscription === (isEpisodeSubscription ? 1 : 0)) {
             await message.reply('You are already subscribed to this content!');
           } else {
             await message.reply(
