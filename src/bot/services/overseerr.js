@@ -2,11 +2,18 @@ import fetch from 'node-fetch';
 
 // Load user mapping from environment
 // Format: {"overseerr_id":"discord_id"}
+// Example: {"1":"265316362900078592"}
+console.log('Raw OVERSEERR_USER_MAP:', process.env.OVERSEERR_USER_MAP);
+
 const userMap = process.env.OVERSEERR_USER_MAP ? 
   JSON.parse(process.env.OVERSEERR_USER_MAP) : 
   {};
 
-console.log('Loaded Overseerr user map:', userMap);
+console.log('Loaded Overseerr user map:', {
+  raw: process.env.OVERSEERR_USER_MAP,
+  parsed: userMap,
+  type: typeof process.env.OVERSEERR_USER_MAP
+});
 
 // Get Overseerr ID from Discord ID (for requests)
 function getOverseerId(discordId) {
