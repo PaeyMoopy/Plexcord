@@ -1,7 +1,33 @@
 import fetch from 'node-fetch';
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+// Sanitize the API key by trimming any whitespace
+const TMDB_API_KEY = process.env.TMDB_API_KEY ? process.env.TMDB_API_KEY.trim() : '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+// Test the API key with a simple request when the module loads
+async function testApiKey() {
+  try {
+    console.log('Testing TMDB API key...');
+    const testUrl = `${TMDB_BASE_URL}/movie/550?api_key=${TMDB_API_KEY}`;
+    
+    const response = await fetch(testUrl);
+    if (response.ok) {
+      console.log('TMDB API key test successful!');
+      return true;
+    } else {
+      console.error(`TMDB API key test failed with status: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error('Error details:', errorBody);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error testing TMDB API key:', error.message);
+    return false;
+  }
+}
+
+// Run the test
+testApiKey().catch(console.error);
 
 export async function searchTMDB(query, mediaType = null) {
   try {
@@ -24,43 +50,48 @@ export async function searchTMDB(query, mediaType = null) {
     const encodedQuery = encodeURIComponent(searchQuery);
     const endpoint = forcedMediaType ? `search/${forcedMediaType}` : 'search/multi';
     
-    // Log the TMDB API key length for debugging (don't log the actual key)
-    console.log(`TMDB API key length: ${TMDB_API_KEY ? TMDB_API_KEY.length : 0}`);
+    // Log the TMDB API key for debugging (first few chars + last few chars)
+    if (TMDB_API_KEY) {
+      const firstChars = TMDB_API_KEY.substring(0, 4);
+      const lastChars = TMDB_API_KEY.substring(TMDB_API_KEY.length - 4);
+      console.log(`TMDB API key partial: ${firstChars}...${lastChars} (length: ${TMDB_API_KEY.length})`);
+    } else {
+      console.error('TMDB API key is empty or undefined!');
+    }
     
-    // Try both authentication methods
-    // First, try with API key as query parameter
-    let url = `${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodedQuery}&include_adult=false`;
+    // Construct the full URL for debugging (but mask the API key in logs)
+    const fullUrl = `${TMDB_BASE_URL}/${endpoint}?api_key=XXXXX&query=${encodedQuery}&include_adult=false`;
+    console.log(`Making TMDB API request to: ${fullUrl}`);
     
-    console.log(`Making TMDB API request to: ${TMDB_BASE_URL}/${endpoint} (query params omitted)`);
+    // Actual request URL with real API key
+    const url = `${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodedQuery}&include_adult=false`;
     
-    let response = await fetch(url, {
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
+        'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
     });
     
-    // If that fails with 401, try the bearer token approach for API v4
-    if (response.status === 401) {
-      console.log('API key as parameter failed, trying Bearer token method...');
-      url = `${TMDB_BASE_URL}/${endpoint}?query=${encodedQuery}&include_adult=false`;
-      
-      response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${TMDB_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-    
     if (!response.ok) {
-      // Log detailed error for debugging
+      // Get detailed error information
       const errorText = await response.text();
       console.error(`TMDB API error: Status ${response.status} ${response.statusText}`);
       console.error(`Error response: ${errorText}`);
+      
+      // Try a direct call to the test endpoint to verify API key
+      console.log('Attempting to verify API key with direct call to /movie/550...');
+      const testResponse = await fetch(`${TMDB_BASE_URL}/movie/550?api_key=${TMDB_API_KEY}`);
+      console.log(`Test endpoint result: ${testResponse.status} ${testResponse.statusText}`);
+      
       throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+
+    // Log success for debugging
+    console.log(`TMDB search successful, found ${data.results?.length || 0} results`);
 
     if (!data.results) {
       return [];
