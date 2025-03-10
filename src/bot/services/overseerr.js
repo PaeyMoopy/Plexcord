@@ -80,15 +80,27 @@ export async function createRequest({ mediaType, mediaId, userId }) {
   try {
     // Get the user's Overseerr ID (or fallback to 6)
     const overseerId = getOverseerId(userId);
-    console.log(`Creating Overseerr request for media ${mediaId} (${mediaType}) for Discord user ${userId} (Overseerr ID: ${overseerId})`);
+    console.log('Creating request:', {
+      input: {
+        mediaType,
+        mediaId,
+        discordId: userId
+      },
+      mapped: {
+        overseerId,
+        type: typeof overseerId
+      }
+    });
     
     // Base request body
     const requestBody = {
       mediaType,
       mediaId,
-      userId: overseerId, // Use the mapped Overseerr ID or fallback to 6
+      userId: Number(overseerId), // Ensure it's a number for the API
       is4k: false
     };
+
+    console.log('Request body:', requestBody);
 
     // Get server configurations
     let serverConfig;
@@ -136,7 +148,10 @@ export async function createRequest({ mediaType, mediaId, userId }) {
     );
 
     const responseText = await response.text();
-    console.log('Overseerr response:', response.status, responseText);
+    console.log('Overseerr response:', {
+      status: response.status,
+      body: responseText
+    });
     
     if (!response.ok) {
       throw new Error(`Overseerr API error: ${response.status} - ${responseText}`);

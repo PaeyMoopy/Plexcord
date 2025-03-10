@@ -109,18 +109,30 @@ export async function handleRequest(message, query) {
             }
 
             // Create request with specific seasons
+            const discordId = message.author.id.toString();
+            console.log('Making request for Discord user:', {
+              rawId: message.author.id,
+              stringId: discordId,
+              match: discordId === "265316362900078592"
+            });
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: message.author.id.toString(), // Pass Discord user ID as string
+              userId: discordId,
               seasons: requestableSeasons
             });
           } else {
             // Create movie request
+            const discordId = message.author.id.toString();
+            console.log('Making request for Discord user:', {
+              rawId: message.author.id,
+              stringId: discordId,
+              match: discordId === "265316362900078592"
+            });
             await createRequest({
               mediaType: selected.media_type,
               mediaId: selected.id,
-              userId: message.author.id.toString() // Pass Discord user ID as string
+              userId: discordId
             });
           }
 
