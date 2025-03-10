@@ -1,9 +1,10 @@
-import { config } from 'dotenv';
-import { writeFileSync, existsSync, mkdirSync, join } from 'fs';
+import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
 import { Client, GatewayIntentBits } from 'discord.js';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function validateDiscordToken(token) {
   const client = new Client({
@@ -43,31 +44,30 @@ DISCORD_TOKEN=           # Your Discord bot token
 ALLOWED_CHANNEL_ID=      # Channel ID where bot commands are allowed
 
 # Overseerr Configuration
-OVERSEERR_URL=          # Your Overseerr instance URL
+OVERSEERR_URL=          # Your Overseerr instance URL (e.g., http://localhost:5055)
 OVERSEERR_API_KEY=      # Your Overseerr API key
-# Map Overseerr web users to Discord users for notifications
-# Format: {"overseerr_user_id":"discord_user_id"}
-OVERSEERR_USER_MAP=     # e.g., {"1":"123456789"}
+OVERSEERR_USER_MAP=     # Map Overseerr IDs to Discord IDs, e.g., {"1":"123456789"}
 
 # TMDB Configuration
 TMDB_API_KEY=           # Your TMDB API key
 
-# Webhook Configuration
-WEBHOOK_PORT=5000      # Port for Plex webhook server`;
+# Webhook Configuration (for Plex notifications)
+WEBHOOK_PORT=5000       # Port for webhook server`;
       
       writeFileSync('.env', envTemplate);
-      console.log('Created .env file template. Please fill in your values and run setup again.');
+      console.log('\nCreated .env file template.');
+      console.log('Please fill in your values and run setup again.');
       process.exit(1);
     }
 
+    // Load and validate environment variables
     console.log('Loading environment variables...');
     const envResult = config();
-
     if (!envResult.parsed) {
       throw new Error('Failed to parse .env file');
     }
 
-    // Validate required environment variables
+    // Required environment variables
     const requiredVars = [
       'DISCORD_TOKEN',
       'OVERSEERR_URL',
@@ -79,19 +79,16 @@ WEBHOOK_PORT=5000      # Port for Plex webhook server`;
     ];
 
     const missingVars = requiredVars.filter(varName => !envResult.parsed[varName]);
-
     if (missingVars.length > 0) {
       console.error('\nMissing required environment variables:');
-      missingVars.forEach(varName => {
-        console.error(`- ${varName}`);
-      });
+      missingVars.forEach(varName => console.error(`- ${varName}`));
       console.error('\nPlease add these variables to your .env file and run setup again.');
       process.exit(1);
     }
 
     // Validate Discord token
     console.log('\nValidating Discord token...');
-    const isValidToken = await validateDiscordToken(process.env.DISCORD_TOKEN);
+    const isValidToken = await validateDiscordToken(envResult.parsed.DISCORD_TOKEN);
     if (!isValidToken) {
       process.exit(1);
     }
@@ -99,17 +96,31 @@ WEBHOOK_PORT=5000      # Port for Plex webhook server`;
 
     // Validate OVERSEERR_USER_MAP is valid JSON
     try {
-      JSON.parse(process.env.OVERSEERR_USER_MAP);
+      const userMap = JSON.parse(envResult.parsed.OVERSEERR_USER_MAP);
+      if (typeof userMap !== 'object' || userMap === null) {
+        throw new Error('OVERSEERR_USER_MAP must be a JSON object');
+      }
     } catch (error) {
-      throw new Error('OVERSEERR_USER_MAP must be a valid JSON string. Format: {"overseerr_id":"discord_id"}');
+      console.error('\nERROR: Invalid OVERSEERR_USER_MAP format');
+      console.error('It must be a valid JSON object mapping Overseerr IDs to Discord IDs');
+      console.error('Example: {"1":"123456789","2":"987654321"}');
+      process.exit(1);
     }
 
-    console.log('\nSetup completed successfully! You can now start the bot with:');
-    console.log('npm run start:pm2');
+    // Validate OVERSEERR_URL format
+    try {
+      new URL(envResult.parsed.OVERSEERR_URL);
+    } catch (error) {
+      console.error('\nERROR: Invalid OVERSEERR_URL format');
+      console.error('It must be a valid URL (e.g., http://localhost:5055)');
+      process.exit(1);
+    }
+
+    console.log('\nSetup completed successfully! ✨');
+    console.log('You can now start the bot with: npm run start:pm2');
 
   } catch (error) {
-    console.error('Setup failed:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('\nSetup failed:', error.message);
     process.exit(1);
   }
 }
