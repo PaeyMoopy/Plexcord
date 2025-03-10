@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { client } from '../bot.js';
+import { client } from '../index.js';
 import { getDiscordId } from './overseerr.js';
 import { EmbedBuilder } from 'discord.js';
 
